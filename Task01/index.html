@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numerical Integration - Assignment</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f4f4f9; }
+        h1, h2 { color: #333; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 2px; font-weight: bold; }
+        input, select { width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #218838; }
+        .results { margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 4px; }
+        .error { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Numerical Integration</h1>
+        
+        <div class="form-group">
+            <label for="functionSelect">Select a function f(x):</label>
+            <select id="functionSelect">
+                <option value="x^2">f(x) = x²</option>
+                <option value="sin(x)">f(x) = sin(x)</option>
+                <option value="e^x">f(x) = e^x</option>
+                <option value="1/x">f(x) = 1/x</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="a">Lower limit (a):</label>
+            <input type="number" id="a" value="0" step="any">
+        </div>
+
+        <div class="form-group">
+            <label for="b">Upper limit (b):</label>
+            <input type="number" id="b" value="1" step="any">
+        </div>
+
+        <div class="form-group">
+            <label for="n">Number of sub-intervals (n):</label>
+            <input type="number" id="n" value="10" min="1">
+        </div>
+
+        <button onclick="calculateIntegral()">Calculate Integral</button>
+
+        <div id="result" class="results" style="display:none;">
+            <h2>Results</h2>
+            <p><strong>Trapezoidal Rule:</strong> <span id="resTrap"></span></p>
+            <p><strong>Simpson's Rule:</strong> <span id="resSimp"></span></p>
+            <hr>
+            <h3>Automated Step Size Selection (Precision 1e-6)</h3>
+            <p><strong>Trapezoidal (auto n):</strong> <span id="resAutoTrap"></span></p>
+            <p><strong>Simpson (auto n):</strong> <span id="resAutoSimp"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Mathematical Function Definitions ---
+        // Map the select options to actual JS functions
+        const functions = {
+            'x^2': (x) => x * x,
+            'sin(x)': (x) => Math.sin(x),
+            'e^x': (x) => Math.exp(x),
+            '1/x': (x) => 1 / x
+        };
+
+        // --- 2. Numerical Methods Implementation ---
+
+        /**
+         * Trapezoidal Rule
+         * @param {Function} f - The function to integrate
+         * @param {Number} a - Lower limit
+         * @param {Number} b - Upper limit
+         * @param {Number} n - Number of sub-intervals
+         * @returns {Number} Approximation of the integral
+         */
+        function trapezoidal(f, a, b, n) {
+            const h = (b - a) / n;
+            let sum = 0.5 * (f(a) + f(b)); // f(x0) + f(xn) multiplied by 1/2
+
+            for (let i = 1; i < n; i++) {
+                sum += f(a + i * h);
+            }
+
+            return sum * h;
+        }
+
+        /**
+         * Simpson's 1/3 Rule
+         * @param {Function} f - The function to integrate
+         * @param {Number} a - Lower limit
+         * @param {Number} b - Upper limit
+         * @param {Number} n - Number of sub-intervals (must be even)
+         * @returns {Number} Approximation of the integral
+         */
+        function simpson(f, a, b, n) {
+            // Simpson's rule requires n to be even
+            if (n % 2 !== 0) {
+                n++; // If odd, increase to even so it works
+                console.warn("n was odd, adjusted to " + n + " for Simpson's rule.");
+            }
+
+            const h = (b - a) / n;
+            let sum = f(a) + f(b);
+
+            for (let i = 1; i < n; i++) {
+                const x = a + i * h;
+                if (i % 2 === 0) {
+                    sum += 2 * f(x); // Even terms
+                } else {
+                    sum += 4 * f(x); // Odd terms
+                }
+            }
+
+            return (h / 3) * sum;
+        }
+
+        // --- 3. Automated Step Size Selection (Point 5) ---
+        
+        /**
+         * Automatically calculates the integral by increasing n until desired precision is reached.
+         * @param {Function} method - The method function (trapezoidal or simpson)
+         * @param {Function} f - The mathematical function
+         * @param {Number} a - Lower limit
+         * @param {Number} b - Upper limit
+         * @param {Number} tolerance - Maximum allowed error (e.g., 1e-6)
+         * @returns {Object} { value, n }
+         */
+        function integrateAutomatically(method, f, a, b, tolerance = 1e-6) {
+            let n = 2; // Start with a small even n
+            let previousIntegral = method(f, a, b, n);
+            let currentIntegral = 0;
+            let error = Infinity;
+            const maxIter = 10000; // Safety limit to avoid infinite loops
+
+            while (error > tolerance && n < maxIter) {
+                n *= 2; // Double the number of intervals
+                currentIntegral = method(f, a, b, n);
+                
+                // Calculate the absolute error compared to the previous iteration
+                error = Math.abs(currentIntegral - previousIntegral);
+                
+                previousIntegral = currentIntegral;
+            }
+
+            return { value: currentIntegral, n: n };
+        }
+
+
+        // --- 4. User Interface Logic (Point 22) ---
+
+        function calculateIntegral() {
+            // Get values from inputs
+            const funcKey = document.getElementById('functionSelect').value;
+            const f = functions[funcKey];
+            const a = parseFloat(document.getElementById('a').value);
+            const b = parseFloat(document.getElementById('b').value);
+            let n = parseInt(document.getElementById('n').value);
+
+            // Basic validations
+            if (isNaN(a) || isNaN(b) || isNaN(n) || n <= 0) {
+                alert("Please enter valid numeric values.");
+                return;
+            }
+            if (a >= b) {
+                alert("The lower limit (a) must be less than the upper limit (b).");
+                return;
+            }
+
+            // Manual calculation with the user-provided n
+            const resTrap = trapezoidal(f, a, b, n);
+            // Note: Simpson will adjust n to even if necessary internally
+            const resSimp = simpson(f, a, b, n); 
+
+            // Automatic calculation
+            const autoTrap = integrateAutomatically(trapezoidal, f, a, b, 1e-6);
+            const autoSimp = integrateAutomatically(simpson, f, a, b, 1e-6);
+
+            // Display results in the HTML
+            document.getElementById('resTrap').innerText = resTrap.toFixed(8);
+            document.getElementById('resSimp').innerText = resSimp.toFixed(8);
+            
+            document.getElementById('resAutoTrap').innerText = `${autoTrap.value.toFixed(8)} (using n=${autoTrap.n})`;
+            document.getElementById('resAutoSimp').innerText = `${autoSimp.value.toFixed(8)} (using n=${autoSimp.n})`;
+
+            document.getElementById('result').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
