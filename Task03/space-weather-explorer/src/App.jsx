@@ -1,122 +1,84 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState, useEffect } from 'react';
+import Sidebar from './components/Sidebar';
+import { fetchEvents } from './api/api';
+import { EVENT_TYPES } from './data/datasets';
+import TimelineChart from './components/TimelineChart';
+import SummaryPanel from './components/SummaryPanel';
+import FrequencyChart from './components/FrequencyChart';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [eventType, setEventType] = useState('FLR'); // Solar Flares por defecto
+  const [range, setRange] = useState('30d');         // 30 días por defecto
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // useEffect se dispara cuando cambia el tipo de evento o el rango
+  useEffect(() => {
+    // 1. Creamos el AbortController para cancelar peticiones viejas
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // 2. Llamamos a la API pasando la señal
+        const data = await fetchEvents(eventType, range, signal);
+        setEvents(data);
+      } catch (err) {
+        // Ignoramos el error si fue porque abortamos la petición a propósito
+        if (err.name !== 'AbortError') {
+          setError(err.message);
+        }
+      } finally {
+        // Si no fue abortado, quitamos el loading
+        if (!signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+
+    // 3. Función de limpieza: si el usuario cambia de opción, abortamos la petición anterior
+    return () => {
+      controller.abort();
+    };
+  }, [eventType, range]); // Dependencias
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app-container">
+      <Sidebar 
+        eventType={eventType} 
+        range={range} 
+        onEventTypeChange={setEventType} 
+        onRangeChange={setRange} 
+      />
+      <main className="dashboard">
+        <header>
+          <h1>{EVENT_TYPES.find(t => t.id === eventType)?.label}</h1>
+          <p>Showing data for the {range}</p>
+        </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {loading && <div className="status">Loading data...</div>}
+        {error && <div className="status error">Error: {error}</div>}
+        
+        {!loading && !error && (
+          <div className="charts-area">
+            {/* Panel de resumen con las métricas computacionales */}
+            <SummaryPanel events={events} eventType={eventType} />
+            
+            {/* Gráfico de dispersión D3 */}
+            <TimelineChart events={events} eventType={eventType} />
+            
+            {/* Nuevo gráfico de barras */}
+            <FrequencyChart events={events} eventType={eventType} />
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }
-
-export default App

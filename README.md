@@ -1,0 +1,120 @@
+# Web application assignments
+
+The portal and the three assignments are served by one Nginx container.
+Task 03 is built with Node and Vite during the Docker build. Its current
+space weather data is simulated.
+
+## Project layout
+
+- `portal/`: the landing page and its assignment menu.
+- `Task01/`, `Task02/`, `Task03/`: the application source files.
+- `Dockerfile`: builds Task 03 and copies the public files into Nginx.
+- `nginx.conf`: serves the portal and task directories.
+- `compose.yaml`: builds and runs the web container.
+
+## Run on the VPS
+
+Docker and the Compose plugin must be installed. Copy or clone the complete
+project to the VPS, including all task source files, then run from the
+repository root:
+
+```sh
+docker compose up -d --build
+docker compose ps
+curl -i http://127.0.0.1:8080/
+```
+
+By default the container listens only on `127.0.0.1:8080`, so it is not
+directly accessible from the internet. To change the host port, set
+`APP_PORT` when starting Compose, for example:
+
+```sh
+APP_PORT=8081 docker compose up -d --build
+```
+
+Use the same port in the reverse proxy configuration. For subsequent Compose
+commands, set the same variable or put `APP_PORT=8081` in a local `.env` file.
+Do not put secrets in frontend files: everything copied into the public
+directory can be downloaded by visitors.
+
+## Connect the subdomain
+
+Point `sfedu.ticusco.com` to the VPS and configure the VPS's existing HTTPS
+reverse proxy to forward requests for that hostname to `127.0.0.1:8080`.
+The container itself does not provide TLS or obtain certificates. Keep any
+existing sites and proxy configuration intact.
+
+For example, inside an **existing HTTPS server block** for
+`sfedu.ticusco.com`, an Nginx host proxy can use:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+The host proxy also needs a valid certificate for the subdomain and access
+on port 443; configure these according to the VPS setup. If the VPS does not
+already have an HTTPS proxy, install and configure one before publishing.
+Validate the proxy configuration before reloading it.
+
+After deployment, check the portal and each task over HTTPS, including
+`https://sfedu.ticusco.com/task03/`, and check that CSS, JavaScript and
+images load. Task directories use a trailing slash.
+
+## Automatic deployment with GitHub Actions
+
+The workflow in `.github/workflows/deploy.yml` runs on pushes to `master`.
+It connects to the VPS over SSH and updates the existing Git checkout in
+`/home/data-visualization`, then rebuilds and starts the Compose service.
+It pulls the latest `master` at deployment time, which may be newer than the
+commit that triggered the workflow.
+
+Before the first run:
+
+1. Clone the repository into `/home/data-visualization` on the VPS and check
+   out `master`. The deployment user must be able to access the directory,
+   pull from `origin`, and run `docker compose` without an interactive prompt.
+   If the repository is private, configure separate read-only Git credentials
+   on the VPS. Membership in the Docker group grants root-equivalent access.
+2. Add the deployment SSH public key to the user's `authorized_keys`.
+   The workflow assumes SSH port 22.
+3. Configure the GitHub Actions secrets `DEPLOY_HOST`, `DEPLOY_USER`, and
+   `DEPLOY_KEY` (the complete private key). Keep the key out of the repository.
+4. Push the workflow and all application files to `master`; check the run in
+   the GitHub Actions tab. The checkout must not have local changes that
+   prevent switching branches or a fast-forward pull.
+
+The workflow accepts a previously unknown SSH host key automatically. GitHub
+hosted runners are fresh for each run, so the server's identity is not
+verified against a trusted fingerprint; a machine-in-the-middle could
+impersonate the VPS. Pinning a verified host key is recommended.
+
+## Add another task
+
+1. Add its source in a new directory, for example `Task04/`.
+2. Add a list item linking to `/task04/` in `portal/index.html`.
+3. Add a `COPY` instruction in the final stage of `Dockerfile` that copies
+   only its public files to `/usr/share/nginx/html/task04/`. For example,
+   for a task with only `index.html`:
+
+   ```dockerfile
+   COPY Task04/index.html /usr/share/nginx/html/task04/index.html
+   ```
+
+   Include any CSS, JavaScript, images or other files the task needs. Do not
+   copy source directories wholesale if they contain private files.
+4. If the task requires a build, add a build stage and copy its build output
+   instead. Configure its asset base for `/task04/`; for Vite, one option is
+   `npm run build -- --base=/task04/`. If it uses client-side routes, add an
+   appropriate Nginx fallback for that task. Tasks requiring a backend or a
+   database will need additional services and configuration.
+5. Copy or pull the updated project to the VPS, then run
+   `docker compose up -d --build` and check the new link and its assets.
+
+New folders are not published automatically: the menu and Dockerfile must be
+updated for each task.
