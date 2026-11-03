@@ -9,30 +9,47 @@ concurrency:
   group: production-deploy
   cancel-in-progress: false
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build --tag data-visualization:deploy .
+
       - name: Deploy through SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
         run: |
-          set -eu
+          set -euo pipefail
           umask 077
           mkdir -p ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
 
-          ssh -i ~/.ssh/deploy_key \
+          ssh_command=(ssh -i ~/.ssh/deploy_key \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=accept-new \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "$DEPLOY_USER@$DEPLOY_HOST")
+
+          "${ssh_command[@]}" \
+            'mkdir -p /home/data-visualization &&
+             cd /home/data-visualization &&
+             umask 077 &&
+             cat > compose.deploy.yaml.tmp &&
+             mv -f compose.deploy.yaml.tmp compose.deploy.yaml' < compose.deploy.yaml
+
+          docker image save data-visualization:deploy |
+            "${ssh_command[@]}" 'docker image load'
+
+          "${ssh_command[@]}" \
             'cd /home/data-visualization &&
-             git switch master &&
-             git pull --ff-only origin master &&
-             docker compose up -d --build &&
-             docker compose ps'
+             docker compose -f compose.deploy.yaml up -d --no-build --pull never &&
+             docker compose -f compose.deploy.yaml ps'

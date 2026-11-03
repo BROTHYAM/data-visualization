@@ -1,0 +1,7 @@
+services:
+  web:
+    image: data-visualization:deploy
+    restart: unless-stopped
+    ports:
+      # Match the local Compose configuration and the host's HTTPS proxy.
+      - "127.0.0.1:${APP_PORT:-9000}:80"

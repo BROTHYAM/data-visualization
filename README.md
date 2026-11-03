@@ -10,13 +10,13 @@ space weather data is simulated.
 - `Task01/`, `Task02/`, `Task03/`: the application source files.
 - `Dockerfile`: builds Task 03 and copies the public files into Nginx.
 - `nginx.conf`: serves the portal and task directories.
-- `compose.yaml`: builds and runs the web container.
+- `compose.yaml`: builds and runs the web container from source.
+- `compose.deploy.yaml`: runs the prebuilt image on the VPS.
 
-## Run on the VPS
+## Run from source
 
-Docker and the Compose plugin must be installed. Copy or clone the complete
-project to the VPS, including all task source files, then run from the
-repository root:
+Docker and the Compose plugin must be installed. To run locally or manually
+from a complete copy of the project, run from the repository root:
 
 ```sh
 docker compose up -d --build
@@ -69,25 +69,30 @@ images load. Task directories use a trailing slash.
 ## Automatic deployment with GitHub Actions
 
 The workflow in `.github/workflows/deploy.yml` runs on pushes to `master`.
-It connects to the VPS over SSH and updates the existing Git checkout in
-`/home/data-visualization`, then rebuilds and starts the Compose service.
-It pulls the latest `master` at deployment time, which may be newer than the
-commit that triggered the workflow.
+GitHub Actions checks out the triggering commit, builds its Docker image,
+and sends the image and `compose.deploy.yaml` over SSH. The VPS loads the
+image and starts the service from `/home/data-visualization`. It does not need
+Git, a repository checkout, Node, or access to a container registry.
 
 Before the first run:
 
-1. Clone the repository into `/home/data-visualization` on the VPS and check
-   out `master`. The deployment user must be able to access the directory,
-   pull from `origin`, and run `docker compose` without an interactive prompt.
-   If the repository is private, configure separate read-only Git credentials
-   on the VPS. Membership in the Docker group grants root-equivalent access.
+1. Install Docker and the Compose plugin on the VPS. Ensure
+   `/home/data-visualization` exists or can be created by the deployment
+   user, is writable by that user, and has enough free space for the image.
+   The user must be able to run Docker and Compose without an interactive
+   prompt. Membership in the Docker group grants root-equivalent access.
 2. Add the deployment SSH public key to the user's `authorized_keys`.
    The workflow assumes SSH port 22.
 3. Configure the GitHub Actions secrets `DEPLOY_HOST`, `DEPLOY_USER`, and
    `DEPLOY_KEY` (the complete private key). Keep the key out of the repository.
 4. Push the workflow and all application files to `master`; check the run in
-   the GitHub Actions tab. The checkout must not have local changes that
-   prevent switching branches or a fast-forward pull.
+   the GitHub Actions tab. The workflow deploys tracked files from the push.
+
+The GitHub-hosted runner builds an x86-64 image, so the VPS must have the
+same architecture (`uname -m` should report `x86_64`). Both Compose files
+default to port 9000; keep their port settings synchronized. On the VPS,
+`APP_PORT` can be set in `/home/data-visualization/.env` if needed. The
+workflow replaces `compose.deploy.yaml` on each deployment.
 
 The workflow accepts a previously unknown SSH host key automatically. GitHub
 hosted runners are fresh for each run, so the server's identity is not
@@ -113,8 +118,9 @@ impersonate the VPS. Pinning a verified host key is recommended.
    `npm run build -- --base=/task04/`. If it uses client-side routes, add an
    appropriate Nginx fallback for that task. Tasks requiring a backend or a
    database will need additional services and configuration.
-5. Copy or pull the updated project to the VPS, then run
-   `docker compose up -d --build` and check the new link and its assets.
+5. Commit and push the updated project to `master` for automatic deployment,
+   or rebuild manually with `docker compose up -d --build`. Check the new
+   link and its assets.
 
 New folders are not published automatically: the menu and Dockerfile must be
 updated for each task.
