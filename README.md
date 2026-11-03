@@ -21,10 +21,10 @@ from a complete copy of the project, run from the repository root:
 ```sh
 docker compose up -d --build
 docker compose ps
-curl -i http://127.0.0.1:9000/
+curl -i http://127.0.0.1:9001/
 ```
 
-By default the container listens only on `127.0.0.1:9000`, so it is not
+By default the container listens only on `127.0.0.1:9001`, so it is not
 directly accessible from the internet. To change the host port, set
 `APP_PORT` when starting Compose, for example:
 
@@ -40,7 +40,7 @@ directory can be downloaded by visitors.
 ## Connect the subdomain
 
 Point `sfedu.ticusco.com` to the VPS and configure the VPS's existing HTTPS
-reverse proxy to forward requests for that hostname to `127.0.0.1:9000`.
+reverse proxy to forward requests for that hostname to `127.0.0.1:9001`.
 The container itself does not provide TLS or obtain certificates. Keep any
 existing sites and proxy configuration intact.
 
@@ -49,7 +49,7 @@ For example, inside an **existing HTTPS server block** for
 
 ```nginx
 location / {
-    proxy_pass http://127.0.0.1:9000;
+    proxy_pass http://127.0.0.1:9001;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -90,7 +90,7 @@ Before the first run:
 
 The GitHub-hosted runner builds an x86-64 image, so the VPS must have the
 same architecture (`uname -m` should report `x86_64`). Both Compose files
-default to port 9000; keep their port settings synchronized. On the VPS,
+default to port 9001; keep their port settings synchronized. On the VPS,
 `APP_PORT` can be set in `/home/data-visualization/.env` if needed. The
 workflow replaces `compose.deploy.yaml` on each deployment.
 
