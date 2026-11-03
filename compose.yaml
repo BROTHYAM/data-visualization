@@ -5,4 +5,4 @@ services:
     restart: unless-stopped
     ports:
       # The host's HTTPS reverse proxy forwards requests to this local port.
-      - "127.0.0.1:${APP_PORT:-8080}:80"
+      - "127.0.0.1:${APP_PORT:-9000}:80"
