@@ -73,6 +73,8 @@ GitHub Actions checks out the triggering commit, builds its Docker image,
 and sends the image and `compose.deploy.yaml` over SSH. The VPS loads the
 image and starts the service from `/home/data-visualization`. It does not need
 Git, a repository checkout, Node, or access to a container registry.
+The Nginx runtime uses the Debian-based image to avoid an Alpine `pwritev2`
+compatibility problem observed on older CentOS hosts.
 
 Before the first run:
 

@@ -6,8 +6,8 @@ RUN npm ci
 COPY Task03/space-weather-explorer/ ./
 RUN npm run build -- --base=/task03/
 
-# Serve only the portal and the files needed by each application.
-FROM nginx:alpine
+# Use the Debian-based image to avoid Alpine's pwritev2 dependency on older hosts.
+FROM nginx:stable-bookworm
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY portal/ /usr/share/nginx/html/
 COPY Task01/index.html /usr/share/nginx/html/task01/index.html
