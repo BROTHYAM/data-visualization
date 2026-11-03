@@ -7,6 +7,7 @@ space weather data is simulated.
 ## Project layout
 
 - `portal/`: the landing page and its assignment menu.
+- `shared/header.js`: the reusable header used by the task pages.
 - `Task01/`, `Task02/`, `Task03/`: the application source files.
 - `Dockerfile`: builds Task 03 and copies the public files into Nginx.
 - `nginx.conf`: serves the portal and task directories.
@@ -126,3 +127,20 @@ impersonate the VPS. Pinning a verified host key is recommended.
 
 New folders are not published automatically: the menu and Dockerfile must be
 updated for each task.
+
+## Reuse the task header
+
+For a plain HTML task served through the portal, add this near the beginning
+of the body:
+
+```html
+<assignment-header><a href="/">Back to main menu</a></assignment-header>
+<script type="module" src="/shared/header.js"></script>
+```
+
+The link remains available if JavaScript cannot load. The shared script is
+published at `/shared/header.js` by Docker; a standalone development server
+for an individual task must also serve that path to display the styled
+header. For a React/Vite task in this repository, import `shared/header.js`
+from the component and render the same element, as Task 03 does. Its build
+stage must include the shared source.

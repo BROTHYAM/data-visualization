@@ -1,6 +1,6 @@
 .app-container {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 64px);
   font-family: system-ui, sans-serif;
 }
 

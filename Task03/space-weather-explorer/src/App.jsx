@@ -5,6 +5,7 @@ import { EVENT_TYPES } from './data/datasets';
 import TimelineChart from './components/TimelineChart';
 import SummaryPanel from './components/SummaryPanel';
 import FrequencyChart from './components/FrequencyChart';
+import '../../../shared/header.js';
 import './App.css';
 
 export default function App() {
@@ -50,35 +51,38 @@ export default function App() {
   }, [eventType, range]); // Dependencias
 
   return (
-    <div className="app-container">
-      <Sidebar 
-        eventType={eventType} 
-        range={range} 
-        onEventTypeChange={setEventType} 
-        onRangeChange={setRange} 
-      />
-      <main className="dashboard">
-        <header>
-          <h1>{EVENT_TYPES.find(t => t.id === eventType)?.label}</h1>
-          <p>Showing data for the {range}</p>
-        </header>
+    <>
+      <assignment-header><a href="/">Back to main menu</a></assignment-header>
+      <div className="app-container">
+        <Sidebar 
+          eventType={eventType} 
+          range={range} 
+          onEventTypeChange={setEventType} 
+          onRangeChange={setRange} 
+        />
+        <main className="dashboard">
+          <header>
+            <h1>{EVENT_TYPES.find(t => t.id === eventType)?.label}</h1>
+            <p>Showing data for the {range}</p>
+          </header>
 
-        {loading && <div className="status">Loading data...</div>}
-        {error && <div className="status error">Error: {error}</div>}
-        
-        {!loading && !error && (
-          <div className="charts-area">
-            {/* Panel de resumen con las métricas computacionales */}
-            <SummaryPanel events={events} eventType={eventType} />
+          {loading && <div className="status">Loading data...</div>}
+          {error && <div className="status error">Error: {error}</div>}
+          
+          {!loading && !error && (
+            <div className="charts-area">
+              {/* Panel de resumen con las métricas computacionales */}
+              <SummaryPanel events={events} eventType={eventType} />
             
-            {/* Gráfico de dispersión D3 */}
-            <TimelineChart events={events} eventType={eventType} />
+              {/* Gráfico de dispersión D3 */}
+              <TimelineChart events={events} eventType={eventType} />
             
-            {/* Nuevo gráfico de barras */}
-            <FrequencyChart events={events} eventType={eventType} />
-          </div>
-        )}
-      </main>
-    </div>
+              {/* Nuevo gráfico de barras */}
+              <FrequencyChart events={events} eventType={eventType} />
+            </div>
+          )}
+        </main>
+      </div>
+    </>
   );
 }

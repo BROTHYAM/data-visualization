@@ -7,28 +7,33 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <h1>🛒 Online Shop</h1>
-    <p class="subtitle">Task 2 - Shopping Cart</p>
-  </header>
+  <assignment-header><a href="/">Back to main menu</a></assignment-header>
+  <script type="module" src="/shared/header.js"></script>
 
-  <main>
-    <!-- Catalog -->
-    <section class="panel" id="catalog-panel">
-      <h2>Products</h2>
-      <div id="products" class="products-grid"></div>
-    </section>
+  <div class="page-content">
+    <header>
+      <h1>🛒 Online Shop</h1>
+      <p class="subtitle">Task 2 - Shopping Cart</p>
+    </header>
 
-    <!-- Cart -->
-    <aside class="panel" id="cart-panel">
-      <h2>Your Cart</h2>
-      <div id="cart"></div>
-      <div class="total-row">
-        <span>Total:</span>
-        <span id="total">$0.00</span>
-      </div>
-    </aside>
-  </main>
+    <main>
+      <!-- Catalog -->
+      <section class="panel" id="catalog-panel">
+        <h2>Products</h2>
+        <div id="products" class="products-grid"></div>
+      </section>
+
+      <!-- Cart -->
+      <aside class="panel" id="cart-panel">
+        <h2>Your Cart</h2>
+        <div id="cart"></div>
+        <div class="total-row">
+          <span>Total:</span>
+          <span id="total">$0.00</span>
+        </div>
+      </aside>
+    </main>
+  </div>
 
   <script src="app.js"></script>
 </body>
