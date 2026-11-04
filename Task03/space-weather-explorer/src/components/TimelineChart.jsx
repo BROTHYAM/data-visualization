@@ -1,12 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as d3 from "d3";
 
 export default function TimelineChart({ events, eventType }) {
   const svgRef = useRef(null);
+  const measuredEvents = useMemo(() => events.filter((event) => event.value !== null), [events]);
 
   useEffect(() => {
     // Si no hay eventos o el SVG no está montado, no hacemos nada
-    if (!events || events.length === 0 || !svgRef.current) return;
+    if (measuredEvents.length === 0 || !svgRef.current) return;
 
     // 1. Configuración de dimensiones y márgenes
     const width = 800;
@@ -29,14 +30,14 @@ export default function TimelineChart({ events, eventType }) {
     // X: Tiempo (fechas)
     const xScale = d3
       .scaleTime()
-      .domain(d3.extent(events, (d) => new Date(d.date)))
+      .domain(d3.extent(measuredEvents, (d) => new Date(d.date)))
       .range([0, innerWidth]);
 
     // Y: Valor de intensidad (depende del tipo de evento)
     // Para FLR es un número, para GST es Kp, para CME es velocidad
     const yScale = d3
       .scaleLinear()
-      .domain([0, d3.max(events, (d) => d.value) * 1.1]) // Un 10% extra arriba
+      .domain([0, d3.max(measuredEvents, (d) => d.value) * 1.1 || 1])
       .range([innerHeight, 0])
       .nice();
 
@@ -49,7 +50,7 @@ export default function TimelineChart({ events, eventType }) {
 
     // Eje Y
     g.append("g")
-      .call(d3.axisLeft(yScale))
+      .call(eventType === "FLR" ? d3.axisLeft(yScale).tickFormat(d3.format(".1e")) : d3.axisLeft(yScale))
       .style("font-size", "12px");
 
     // 6. Dibujar los puntos (círculos)
@@ -61,7 +62,7 @@ export default function TimelineChart({ events, eventType }) {
     };
 
     g.selectAll("circle")
-      .data(events)
+      .data(measuredEvents)
       .join("circle")
       .attr("cx", (d) => xScale(new Date(d.date)))
       .attr("cy", (d) => yScale(d.value))
@@ -71,10 +72,10 @@ export default function TimelineChart({ events, eventType }) {
       .style("cursor", "pointer")
       // Tooltip básico nativo usando el título del SVG
       .append("title")
-      .text((d) => `${new Date(d.date).toLocaleDateString()}\nValue: ${d.value.toFixed(2)}`);
+      .text((d) => `${new Date(d.date).toLocaleDateString()}\nValue: ${eventType === "FLR" ? d.value.toExponential(2) : d.value.toFixed(2)}`);
 
     // Etiqueta del eje Y
-    const yLabels = { FLR: "Intensity", GST: "Kp Index", CME: "Speed (km/s)" };
+    const yLabels = { FLR: "Peak flux (W/m²)", GST: "Kp Index", CME: "Speed (km/s)" };
     g.append("text")
       .attr("x", -innerHeight / 2)
       .attr("y", -35)
@@ -83,12 +84,14 @@ export default function TimelineChart({ events, eventType }) {
       .style("font-size", "12px")
       .text(yLabels[eventType] || "Value");
 
-  }, [events, eventType]); // Se vuelve a dibujar si cambian los eventos o el tipo
+  }, [measuredEvents, eventType]); // Se vuelve a dibujar si cambian los eventos o el tipo
 
   return (
     <div className="chart-container">
       <h3>Event Timeline</h3>
-      <svg ref={svgRef} width="100%" height="400px"></svg>
+      {measuredEvents.length > 0
+        ? <svg ref={svgRef} width="100%" height="400px"></svg>
+        : <p>No measurements are available for the timeline.</p>}
     </div>
   );
 }

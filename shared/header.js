@@ -58,7 +58,6 @@ headerTemplate.innerHTML = `
     }
   </style>
   <header>
-    <span class="brand">Web Applications</span>
     <a href="/"><span aria-hidden="true">&larr;</span> Main menu</a>
   </header>
 `;

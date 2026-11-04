@@ -5,3 +5,13 @@ services:
     ports:
       # Match the local Compose configuration and the host's HTTPS proxy.
       - "127.0.0.1:${APP_PORT:-9001}:80"
+    depends_on:
+      - nasa-api
+  nasa-api:
+    image: data-visualization:deploy
+    pull_policy: never
+    entrypoint: ["/usr/local/bin/nasa-proxy"]
+    user: "65534:65534"
+    restart: unless-stopped
+    environment:
+      NASA_API_KEY: ${NASA_API_KEY:-}

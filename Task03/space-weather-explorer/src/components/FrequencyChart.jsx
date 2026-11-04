@@ -50,7 +50,7 @@ export default function FrequencyChart({ events, eventType }) {
       .style("font-size", "12px");
 
     g.append("g")
-      .call(d3.axisLeft(yScale).ticks(5).tickFormat(d3.format("d")))
+      .call(d3.axisLeft(yScale).ticks(Math.min(5, d3.max(groupedData, (d) => d[1]))).tickFormat(d3.format("d")))
       .style("font-size", "12px");
 
     // 4. Dibujar las barras

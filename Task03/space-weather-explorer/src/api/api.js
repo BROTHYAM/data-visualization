@@ -1,66 +1,66 @@
-// src/api/api.js
-// Fetch layer for the Space Weather Explorer.
-// Mirrors the role of api.js in the class 3 example.
-// For now, returns mock data so the UI can be built without hitting API limits.
+import { DATE_RANGES, EVENT_TYPES } from "../data/datasets.js";
 
-const MOCK_DELAY_MS = 300;
+const FLARE_MULTIPLIERS = { A: 1e-8, B: 1e-7, C: 1e-6, M: 1e-5, X: 1e-4 };
 
-// Generate a random date within the last N days.
-function randomDateInLastDays(days) {
-  const now = Date.now();
-  const past = now - Math.floor(Math.random() * days) * 24 * 60 * 60 * 1000;
-  return new Date(past).toISOString();
+function flareValue(classType) {
+  const match = typeof classType === "string" && /^([ABCMX])(\d+(?:\.\d+)?)$/i.exec(classType.trim());
+  if (!match) return null;
+  const value = Number(match[2]) * FLARE_MULTIPLIERS[match[1].toUpperCase()];
+  return Number.isFinite(value) ? value : null;
 }
 
-// Mock event generator.
-function generateMockEvents(type, days) {
-  const count = 10 + Math.floor(Math.random() * 30);
-  const events = [];
-  for (let i = 0; i < count; i++) {
-    const date = randomDateInLastDays(days);
-    if (type === "FLR") {
-      events.push({
-        id: `flr-${i}`,
-        date,
-        intensity: Math.random() < 0.7 ? "C" : Math.random() < 0.6 ? "M" : "X",
-        value: Math.random() * 10,
-      });
-    } else if (type === "GST") {
-      events.push({
-        id: `gst-${i}`,
-        date,
-        intensity: (Math.random() * 9).toFixed(1), // Kp index
-        value: Math.random() * 9,
-      });
-    } else if (type === "CME") {
-      events.push({
-        id: `cme-${i}`,
-        date,
-        speed: 200 + Math.random() * 1500,
-        value: Math.random() * 1500,
-      });
-    }
-  }
-  return events.sort((a, b) => new Date(a.date) - new Date(b.date));
+function numericValue(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-// Main fetch function. Signature matches the pattern from class 3:
-//   fetchEvents(type, range, signal)
-// Returns a promise that resolves to an array of events.
-// Supports AbortSignal to cancel stale requests.
-export async function fetchEvents(type, range, signal) {
-  // Simulate network delay.
-  await new Promise((resolve, reject) => {
-    const t = setTimeout(resolve, MOCK_DELAY_MS);
-    if (signal) {
-      signal.addEventListener("abort", () => {
-        clearTimeout(t);
-        reject(new DOMException("Aborted", "AbortError"));
-      });
-    }
+function stormValue(indices) {
+  if (!Array.isArray(indices)) return null;
+  const values = indices.map((index) => numericValue(index?.kpIndex))
+    .filter((value) => value !== null && value >= 0 && value <= 9);
+  return values.length ? Math.max(...values) : null;
+}
+
+function cmeValue(analyses) {
+  if (!Array.isArray(analyses)) return null;
+  const valid = analyses.filter((analysis) => {
+    const speed = numericValue(analysis?.speed);
+    return speed !== null && speed >= 0;
   });
+  const analysis = valid.find((item) => item.isMostAccurate) || valid[0];
+  return analysis ? analysis.speed : null;
+}
 
-  const days = parseInt(range.replace("d", "").replace("y", ""), 10) || 30;
-  const finalDays = range === "1y" ? 365 : days;
-  return generateMockEvents(type, finalDays);
+export function normalizeEvents(data, type) {
+  if (!Array.isArray(data)) throw new Error("NASA returned an invalid event list.");
+  if (!EVENT_TYPES.some((item) => item.id === type)) throw new Error("Invalid event type.");
+
+  return data.map((item) => {
+    const id = type === "FLR" ? item?.flrID : type === "GST" ? item?.gstID : item?.activityID;
+    const date = type === "FLR" ? item?.beginTime : item?.startTime;
+    if (typeof id !== "string" || !id || typeof date !== "string" || !Number.isFinite(Date.parse(date))) {
+      throw new Error("NASA returned an event without a valid ID or date.");
+    }
+
+    return {
+      id,
+      date,
+      value: type === "FLR" ? flareValue(item.classType)
+        : type === "GST" ? stormValue(item.allKpIndex)
+          : cmeValue(item.cmeAnalyses),
+    };
+  }).sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
+}
+
+export async function fetchEvents(type, range, signal) {
+  if (!EVENT_TYPES.some((item) => item.id === type) || !DATE_RANGES.some((item) => item.id === range)) {
+    throw new Error("Invalid event type or date range.");
+  }
+  const params = new URLSearchParams({ type, range });
+  const response = await fetch(`/api/events?${params}`, { signal });
+  if (!response.ok) {
+    const contentType = response.headers.get("content-type") || "";
+    const message = contentType.startsWith("text/plain") ? (await response.text()).trim() : "";
+    throw new Error(message || `Unable to load NASA events (HTTP ${response.status}).`);
+  }
+  return normalizeEvents(await response.json(), type);
 }

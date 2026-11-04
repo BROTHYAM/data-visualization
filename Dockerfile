@@ -1,3 +1,9 @@
+# Build the NASA proxy as a static binary compatible with older Linux hosts.
+FROM golang:1.26-bookworm AS nasa-build
+WORKDIR /app/nasa-proxy
+COPY nasa-proxy/ ./
+RUN CGO_ENABLED=0 go build -trimpath -o /nasa-proxy .
+
 # Build the Vite application for its public URL, not for the domain root.
 FROM node:24-alpine AS task03-build
 WORKDIR /app/Task03/space-weather-explorer
@@ -9,6 +15,7 @@ RUN npm run build -- --base=/task03/
 
 # Use the Debian-based image to avoid Alpine's pwritev2 dependency on older hosts.
 FROM nginx:stable-bookworm
+COPY --from=nasa-build /nasa-proxy /usr/local/bin/nasa-proxy
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY portal/ /usr/share/nginx/html/
 COPY shared/ /usr/share/nginx/html/shared/

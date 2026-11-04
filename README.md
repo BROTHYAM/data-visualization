@@ -1,18 +1,62 @@
 # Web application assignments
 
-The portal and the three assignments are served by one Nginx container.
-Task 03 is built with Node and Vite during the Docker build. Its current
-space weather data is simulated.
+The portal and the three assignments are served by Nginx. Task 03 uses a
+separate server-side proxy to retrieve real space weather data from NASA
+DONKI without exposing the API key to the browser. Node and Vite build the
+frontend during the Docker build.
 
 ## Project layout
 
 - `portal/`: the landing page and its assignment menu.
 - `shared/header.js`: the reusable header used by the task pages.
+- `nasa-proxy/`: the server-side NASA API proxy.
 - `Task01/`, `Task02/`, `Task03/`: the application source files.
 - `Dockerfile`: builds Task 03 and copies the public files into Nginx.
 - `nginx.conf`: serves the portal and task directories.
 - `compose.yaml`: builds and runs the web container from source.
 - `compose.deploy.yaml`: runs the prebuilt image on the VPS.
+
+## Configure the NASA API key
+
+Obtain a NASA API key and keep it outside the repository. On the VPS, create
+or edit `/home/data-visualization/.env` as the deployment user and add:
+
+```text
+NASA_API_KEY=your_nasa_api_key
+```
+
+Keep any existing settings such as `APP_PORT`. Restrict access with
+`chmod 600 /home/data-visualization/.env` and ensure the deployment user owns
+and can read the file. The file is not sent by GitHub Actions, copied into the
+image, or tracked by Git. Never put the key in frontend code or publish the
+output of `docker compose config`, which may contain the key.
+
+After adding or changing the key, recreate the VPS services from that
+directory:
+
+```sh
+docker compose -f compose.deploy.yaml up -d --no-build --pull never
+```
+
+For local development, create a separate `.env` in the repository root with
+the same variable and start the services with `docker compose up -d --build`.
+The Vite development server forwards `/api` requests to `127.0.0.1:9001`;
+start Compose first. If using a different `APP_PORT`, set the non-secret
+`VITE_API_PROXY_TARGET` environment variable when starting Vite, for example
+`VITE_API_PROXY_TARGET=http://127.0.0.1:8081 npm run dev` in a Unix shell.
+
+The browser requests `/api/events` on the same origin. Nginx forwards those
+requests to the private proxy container, which calls NASA using the key. If the
+key is absent, invalid, or the upstream service fails, Task 03 displays an
+error rather than simulated data. The proxy endpoint is publicly reachable
+through Nginx, so visitors can consume the NASA key's request quota; consider
+access control or rate limiting before wider publication.
+
+DONKI's selected date ranges cover inclusive UTC calendar dates. Event counts
+include records without a measurement; the timeline and measurement summaries
+exclude them. Solar flare classes are converted to their corresponding X-ray
+flux in W/m²; storms use the highest available Kp index per event and CMEs use
+the most accurate available speed analysis.
 
 ## Run from source
 

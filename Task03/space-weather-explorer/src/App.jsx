@@ -12,7 +12,7 @@ export default function App() {
   const [eventType, setEventType] = useState('FLR'); // Solar Flares por defecto
   const [range, setRange] = useState('30d');         // 30 días por defecto
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // useEffect se dispara cuando cambia el tipo de evento o el rango
@@ -69,8 +69,18 @@ export default function App() {
           {loading && <div className="status">Loading data...</div>}
           {error && <div className="status error">Error: {error}</div>}
           
-          {!loading && !error && (
+          {!loading && !error && events.length === 0 && (
+            <div className="status">No events were found for this period.</div>
+          )}
+
+          {!loading && !error && events.length > 0 && (
             <div className="charts-area">
+              {events.some((event) => event.value === null) && (
+                <p className="status">
+                  Some events have no available measurement. They are counted in the frequency chart
+                  but excluded from measurement statistics and the timeline.
+                </p>
+              )}
               {/* Panel de resumen con las métricas computacionales */}
               <SummaryPanel events={events} eventType={eventType} />
             
